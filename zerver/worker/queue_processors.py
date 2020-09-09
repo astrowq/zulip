@@ -16,7 +16,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict, deque
 from email.message import EmailMessage
 from functools import wraps
-from threading import Timer
+from threading import Lock, Timer
 from typing import (
     Any,
     Callable,
@@ -35,6 +35,7 @@ import orjson
 import requests
 from django.conf import settings
 from django.db import connection
+from django.db.models import F
 from django.utils.timezone import now as timezone_now
 from django.utils.translation import override as override_language
 from django.utils.translation import ugettext as _
@@ -180,8 +181,8 @@ class QueueProcessingWorker(ABC):
         self.update_statistics(0)
 
     def update_statistics(self, remaining_queue_size: int) -> None:
-        total_seconds = sum([seconds for _, seconds in self.recent_consume_times])
-        total_events = sum([events_number for events_number, _ in self.recent_consume_times])
+        total_seconds = sum(seconds for _, seconds in self.recent_consume_times)
+        total_events = sum(events_number for events_number, _ in self.recent_consume_times)
         if total_events == 0:
             recent_average_consume_time = None
         else:
@@ -351,12 +352,12 @@ class ConfirmationEmailWorker(QueueProcessingWorker):
         # queue invitation reminder
         if settings.INVITATION_LINK_VALIDITY_DAYS >= 4:
             context = common_context(referrer)
-            context.update({
-                'activate_url': activate_url,
-                'referrer_name': referrer.full_name,
-                'referrer_email': referrer.delivery_email,
-                'referrer_realm_name': referrer.realm.name,
-            })
+            context.update(
+                activate_url=activate_url,
+                referrer_name=referrer.full_name,
+                referrer_email=referrer.delivery_email,
+                referrer_realm_name=referrer.realm.name,
+            )
             send_future_email(
                 "zerver/emails/invitation_reminder",
                 referrer.realm,
@@ -469,47 +470,58 @@ class MissedMessageWorker(QueueProcessingWorker):
     events_by_recipient: Dict[int, List[Dict[str, Any]]] = defaultdict(list)
     batch_start_by_recipient: Dict[int, float] = {}
 
+    # This lock protects access to all of the data structures declared
+    # above.  A lock is required because maybe_send_batched_emails, as
+    # the argument to Timer, runs in a separate thread from the rest
+    # of the consumer.
+    lock = Lock()
+
     def consume(self, event: Dict[str, Any]) -> None:
-        logging.debug("Received missedmessage_emails event: %s", event)
+        with self.lock:
+            logging.debug("Received missedmessage_emails event: %s", event)
 
-        # When we process an event, just put it into the queue and ensure we have a timer going.
-        user_profile_id = event['user_profile_id']
-        if user_profile_id not in self.batch_start_by_recipient:
-            self.batch_start_by_recipient[user_profile_id] = time.time()
-        self.events_by_recipient[user_profile_id].append(event)
+            # When we process an event, just put it into the queue and ensure we have a timer going.
+            user_profile_id = event['user_profile_id']
+            if user_profile_id not in self.batch_start_by_recipient:
+                self.batch_start_by_recipient[user_profile_id] = time.time()
+            self.events_by_recipient[user_profile_id].append(event)
 
-        self.ensure_timer()
+            self.ensure_timer()
 
     def ensure_timer(self) -> None:
+        # The caller is responsible for ensuring self.lock is held when it calls this.
         if self.timer_event is not None:
             return
-        self.timer_event = Timer(self.TIMER_FREQUENCY, MissedMessageWorker.maybe_send_batched_emails, [self])
+
+        self.timer_event = Timer(self.TIMER_FREQUENCY, MissedMessageWorker.maybe_send_batched_emails,
+                                 [self])
         self.timer_event.start()
 
-    def stop_timer(self) -> None:
-        if self.timer_event and self.timer_event.is_alive():
-            self.timer_event.cancel()
+    def maybe_send_batched_emails(self) -> None:
+        with self.lock:
+            # self.timer_event just triggered execution of this
+            # function in a thread, so now that we hold the lock, we
+            # clear the timer_event attribute to record that no Timer
+            # is active.
             self.timer_event = None
 
-    def maybe_send_batched_emails(self) -> None:
-        self.stop_timer()
+            current_time = time.time()
+            for user_profile_id, timestamp in list(self.batch_start_by_recipient.items()):
+                if current_time - timestamp < self.BATCH_DURATION:
+                    continue
+                events = self.events_by_recipient[user_profile_id]
+                logging.info("Batch-processing %s missedmessage_emails events for user %s",
+                             len(events), user_profile_id)
+                handle_missedmessage_emails(user_profile_id, events)
+                del self.events_by_recipient[user_profile_id]
+                del self.batch_start_by_recipient[user_profile_id]
 
-        current_time = time.time()
-        for user_profile_id, timestamp in list(self.batch_start_by_recipient.items()):
-            if current_time - timestamp < self.BATCH_DURATION:
-                continue
-            events = self.events_by_recipient[user_profile_id]
-            logging.info("Batch-processing %s missedmessage_emails events for user %s",
-                         len(events), user_profile_id)
-            handle_missedmessage_emails(user_profile_id, events)
-            del self.events_by_recipient[user_profile_id]
-            del self.batch_start_by_recipient[user_profile_id]
-
-        # By only restarting the timer if there are actually events in
-        # the queue, we ensure this queue processor is idle when there
-        # are no missed-message emails to process.
-        if len(self.batch_start_by_recipient) > 0:
-            self.ensure_timer()
+            # By only restarting the timer if there are actually events in
+            # the queue, we ensure this queue processor is idle when there
+            # are no missed-message emails to process.  This avoids
+            # constant CPU usage when there is no work to do.
+            if len(self.batch_start_by_recipient) > 0:
+                self.ensure_timer()
 
 @assign_queue('email_senders')
 class EmailSendingWorker(QueueProcessingWorker):
@@ -688,6 +700,12 @@ class EmbeddedBotWorker(QueueProcessingWorker):
 
 @assign_queue('deferred_work')
 class DeferredWorker(QueueProcessingWorker):
+    """This queue processor is intended for cases where we want to trigger a
+    potentially expensive, not urgent, job to be run on a separate
+    thread from the Django worker that initiated it (E.g. so we that
+    can provide a low-latency HTTP response or avoid risk of request
+    timeouts for an operation that could in rare cases take minutes).
+    """
     def consume(self, event: Dict[str, Any]) -> None:
         if event['type'] == 'mark_stream_messages_as_read':
             user_profile = get_user_profile_by_id(event['user_profile_id'])
@@ -700,6 +718,18 @@ class DeferredWorker(QueueProcessingWorker):
                 (stream, recipient, sub) = access_stream_by_id(user_profile, stream_id,
                                                                require_active=False)
                 do_mark_stream_messages_as_read(user_profile, client, stream)
+        elif event["type"] == 'mark_stream_messages_as_read_for_everyone':
+            # This event is generated by the stream deactivation code path.
+            batch_size = 100
+            offset = 0
+            while True:
+                messages = Message.objects.filter(recipient_id=event["stream_recipient_id"]) \
+                    .order_by("id")[offset:offset + batch_size]
+                UserMessage.objects.filter(message__in=messages).extra(where=[UserMessage.where_unread()]) \
+                    .update(flags=F('flags').bitor(UserMessage.flags.read))
+                offset += len(messages)
+                if len(messages) < batch_size:
+                    break
         elif event['type'] == 'clear_push_device_tokens':
             try:
                 clear_push_device_tokens(event["user_profile_id"])

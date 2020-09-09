@@ -16,7 +16,7 @@ from linter_lib.custom_check import non_py_rules, python_rules
 
 def run() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument('--force', default=False,
+    parser.add_argument('--force',
                         action="store_true",
                         help='Run tests despite possible problems.')
     parser.add_argument('--full',
@@ -61,7 +61,7 @@ def run() -> None:
                                   description="Runs the puppet parser validator, "
                                   "checking for syntax errors.")
     linter_config.external_linter('puppet-lint',
-                                  ['puppet-lint', '--fail-on-warnings'] + PUPPET_CHECK_RULES_TO_EXCLUDE,
+                                  ['puppet-lint', '--fail-on-warnings', *PUPPET_CHECK_RULES_TO_EXCLUDE],
                                   ['pp'],
                                   fix_arg='--fix',
                                   description="Standard puppet linter"

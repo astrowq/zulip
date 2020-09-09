@@ -209,6 +209,13 @@ run_test("basic_chars", () => {
     set_global("popovers", {
         actions_popped: return_false,
         message_info_popped: return_false,
+        user_sidebar_popped: return_false,
+    });
+    set_global("stream_popover", {
+        stream_popped: return_false,
+        topic_popped: return_false,
+        all_messages_popped: return_false,
+        starred_messages_popped: return_false,
     });
     set_global("emoji_picker", {
         reactions_popped: return_false,

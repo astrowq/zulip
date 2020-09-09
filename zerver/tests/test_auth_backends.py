@@ -255,23 +255,23 @@ class AuthBackendTest(ZulipTestCase):
                                              password=password,
                                              username=username,
                                              realm=get_realm('zulip'),
-                                             return_data=dict()),
+                                             return_data={}),
                             bad_kwargs=dict(request=mock.MagicMock(),
                                             password=password,
                                             username=username,
                                             realm=get_realm('zephyr'),
-                                            return_data=dict()))
+                                            return_data={}))
         self.verify_backend(EmailAuthBackend(),
                             good_kwargs=dict(request=mock.MagicMock(),
                                              password=password,
                                              username=username,
                                              realm=get_realm('zulip'),
-                                             return_data=dict()),
+                                             return_data={}),
                             bad_kwargs=dict(request=mock.MagicMock(),
                                             password=password,
                                             username=username,
                                             realm=get_realm('zephyr'),
-                                            return_data=dict()))
+                                            return_data={}))
 
     def test_email_auth_backend_empty_password(self) -> None:
         user_profile = self.example_user('hamlet')
@@ -576,7 +576,8 @@ class RateLimitAuthenticationTests(ZulipTestCase):
                 with mock.patch('time.time', return_value=start_time + 11.0):
                     self.assertIsNone(attempt_authentication(username, wrong_password))
 
-                    self.assertEqual(attempt_authentication(username, correct_password), expected_user_profile)  # Correct password
+                    # Correct password
+                    self.assertEqual(attempt_authentication(username, correct_password), expected_user_profile)
                     # A correct login attempt should reset the rate limits for this user profile,
                     # so the next two attempts shouldn't get limited:
                     self.assertIsNone(attempt_authentication(username, wrong_password))
@@ -600,7 +601,7 @@ class RateLimitAuthenticationTests(ZulipTestCase):
                                                    username=username,
                                                    realm=get_realm("zulip"),
                                                    password=password,
-                                                   return_data=dict())
+                                                   return_data={})
 
         self.do_test_auth_rate_limiting(attempt_authentication,
                                         user_profile.delivery_email,
@@ -619,7 +620,7 @@ class RateLimitAuthenticationTests(ZulipTestCase):
                                                        username=username,
                                                        realm=get_realm("zulip"),
                                                        password=password,
-                                                       return_data=dict())
+                                                       return_data={})
 
         self.do_test_auth_rate_limiting(attempt_authentication,
                                         user_profile.delivery_email,
@@ -643,7 +644,7 @@ class RateLimitAuthenticationTests(ZulipTestCase):
                                 username=username,
                                 realm=get_realm("zulip"),
                                 password=password,
-                                return_data=dict())
+                                return_data={})
 
         self.do_test_auth_rate_limiting(attempt_authentication,
                                         user_profile.delivery_email,
@@ -1562,9 +1563,9 @@ class SAMLAuthBackendTest(SocialAuthBase):
         extra_attrs = ''
         for extra_attr_name, extra_attr_values in extra_attributes.items():
             values = ''.join(
-                ['<saml2:AttributeValue xmlns:xs="http://www.w3.org/2001/XMLSchema" ' +
-                 'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="xs:string">' +
-                 f'{value}</saml2:AttributeValue>' for value in extra_attr_values]
+                '<saml2:AttributeValue xmlns:xs="http://www.w3.org/2001/XMLSchema" ' +
+                'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="xs:string">' +
+                f'{value}</saml2:AttributeValue>' for value in extra_attr_values
             )
             extra_attrs += f'<saml2:Attribute Name="{extra_attr_name}" ' + \
                            'NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified">' + \
@@ -1704,7 +1705,7 @@ class SAMLAuthBackendTest(SocialAuthBase):
             relay_state = orjson.dumps(dict(
                 state_token=SAMLAuthBackend.put_data_in_redis({"subdomain": "zulip"}),
             )).decode()
-            post_params = {"RelayState": relay_state, 'SAMLResponse': 'dGVzdA=='}  # base64 encoded 'test'
+            post_params = {"RelayState": relay_state, 'SAMLResponse': base64.b64encode(b"test").decode()}
             result = self.client_post('/complete/saml/',  post_params)
             self.assertEqual(result.status_code, 302)
             self.assertIn('login', result.url)
@@ -1756,7 +1757,7 @@ class SAMLAuthBackendTest(SocialAuthBase):
             relay_state = orjson.dumps(dict(
                 state_token=SAMLAuthBackend.put_data_in_redis({"subdomain": "zulip"}),
             )).decode()
-            post_params = {"RelayState": relay_state, 'SAMLResponse': 'dGVzdA=='}
+            post_params = {"RelayState": relay_state, 'SAMLResponse': base64.b64encode(b"test").decode()}
             result = self.client_post('/complete/saml/',  post_params)
             self.assertEqual(result.status_code, 302)
             self.assertIn('login', result.url)
@@ -4141,21 +4142,21 @@ class TestLDAP(ZulipLDAPTestCase):
         common_attrs = ['cn', 'userPassword', 'phoneNumber', 'birthDate']
         for key, value in ldap_dir.items():
             self.assertTrue(regex.match(key))
-            self.assertCountEqual(list(value.keys()), common_attrs + ['uid', 'thumbnailPhoto', 'userAccountControl'])
+            self.assertCountEqual(list(value.keys()), [*common_attrs, 'uid', 'thumbnailPhoto', 'userAccountControl'])
 
         ldap_dir = generate_dev_ldap_dir('b', 9)
         self.assertEqual(len(ldap_dir), 9)
         regex = re.compile(r'(uid\=)+[a-zA-Z0-9_.+-]+(\,ou\=users\,dc\=zulip\,dc\=com)')
         for key, value in ldap_dir.items():
             self.assertTrue(regex.match(key))
-            self.assertCountEqual(list(value.keys()), common_attrs + ['uid', 'jpegPhoto'])
+            self.assertCountEqual(list(value.keys()), [*common_attrs, 'uid', 'jpegPhoto'])
 
         ldap_dir = generate_dev_ldap_dir('c', 8)
         self.assertEqual(len(ldap_dir), 8)
         regex = re.compile(r'(uid\=)+[a-zA-Z0-9_.+-]+(\,ou\=users\,dc\=zulip\,dc\=com)')
         for key, value in ldap_dir.items():
             self.assertTrue(regex.match(key))
-            self.assertCountEqual(list(value.keys()), common_attrs + ['uid', 'email'])
+            self.assertCountEqual(list(value.keys()), [*common_attrs, 'uid', 'email'])
 
     @override_settings(AUTHENTICATION_BACKENDS=('zproject.backends.ZulipLDAPAuthBackend',))
     def test_dev_ldap_fail_login(self) -> None:
@@ -4626,7 +4627,8 @@ class TestZulipLDAPUserPopulator(ZulipLDAPTestCase):
             do_deactivate_user(othello)
             mock_logger = mock.MagicMock()
             result = sync_user_from_ldap(othello, mock_logger)
-            self.assertEqual(mock_logger.method_calls, [])  # In this case the logger shouldn't be used.
+            # In this case the logger shouldn't be used.
+            self.assertEqual(mock_logger.method_calls, [])
             self.assertFalse(result)
 
     def test_update_user_avatar(self) -> None:

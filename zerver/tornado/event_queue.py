@@ -256,7 +256,8 @@ class EventQueue:
 
         self.queue: Deque[Dict[str, Any]] = deque()
         self.next_event_id: int = 0
-        self.newest_pruned_id: Optional[int] = -1  # will only be None for migration from old versions
+        # will only be None for migration from old versions
+        self.newest_pruned_id: Optional[int] = -1
         self.id: str = id
         self.virtual_events: Dict[str, Dict[str, Any]] = {}
 
@@ -332,7 +333,7 @@ class EventQueue:
         virtual_id_map: Dict[str, Dict[str, Any]] = {}
         for event_type in self.virtual_events:
             virtual_id_map[self.virtual_events[event_type]["id"]] = self.virtual_events[event_type]
-        virtual_ids = sorted(list(virtual_id_map.keys()))
+        virtual_ids = sorted(virtual_id_map.keys())
 
         # Merge the virtual events into their final place in the queue
         index = 0
@@ -687,7 +688,7 @@ def maybe_enqueue_notifications(user_profile_id: int, message_id: int, private_m
     """This function has a complete unit test suite in
     `test_enqueue_notifications` that should be expanded as we add
     more features here."""
-    notified: Dict[str, bool] = dict()
+    notified: Dict[str, bool] = {}
 
     if (idle or always_push_notify) and (private_message or mentioned or
                                          wildcard_mention_notify or stream_push_notify):

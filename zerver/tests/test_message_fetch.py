@@ -1094,7 +1094,7 @@ class GetOldMessagesTest(ZulipTestCase):
         for message in result["messages"]:
             assert(message["id"] in message_ids)
 
-        post_params.update({"num_before": len(message_ids[pivot_index:])})
+        post_params.update(num_before=len(message_ids[pivot_index:]))
 
         with first_visible_id_as(message_ids[pivot_index]):
             payload = self.client_get("/json/messages", dict(post_params))
@@ -1151,7 +1151,7 @@ class GetOldMessagesTest(ZulipTestCase):
         Test old `/json/messages` returns reactions.
         """
         self.login('hamlet')
-        messages = self.get_and_check_messages(dict())
+        messages = self.get_and_check_messages({})
         message_id = messages['messages'][0]['id']
 
         self.login('othello')
@@ -1182,7 +1182,7 @@ class GetOldMessagesTest(ZulipTestCase):
         messages.
         """
         self.login('hamlet')
-        self.get_and_check_messages(dict())
+        self.get_and_check_messages({})
 
         othello_email = self.example_user('othello').email
 
@@ -1212,10 +1212,10 @@ class GetOldMessagesTest(ZulipTestCase):
             "narrow": orjson.dumps([dict(operator='streams', operand="web-public")]).decode(),
         }
 
-        with mock.patch('zerver.views.message_fetch.get_realm_from_request', return_value=None):
+        with mock.patch('zerver.context_processors.get_realm', side_effect=Realm.DoesNotExist):
             result = self.client_get("/json/messages", dict(post_params))
-            self.assert_json_error(result, "Invalid subdomain.",
-                                   status_code=400)
+            self.assert_json_error(result, "Invalid subdomain",
+                                   status_code=404)
 
     def test_unauthenticated_get_messages_without_web_public(self) -> None:
         """
@@ -1391,11 +1391,11 @@ class GetOldMessagesTest(ZulipTestCase):
 
         def dr_emails(dr: DisplayRecipientT) -> str:
             assert isinstance(dr, list)
-            return ','.join(sorted(set([r['email'] for r in dr] + [me.email])))
+            return ','.join(sorted({*(r['email'] for r in dr), me.email}))
 
         def dr_ids(dr: DisplayRecipientT) -> List[int]:
             assert isinstance(dr, list)
-            return list(sorted(set([r['id'] for r in dr] + [self.example_user('hamlet').id])))
+            return sorted({*(r['id'] for r in dr), self.example_user('hamlet').id})
 
         self.send_personal_message(me, self.example_user("iago"))
 
@@ -2449,7 +2449,7 @@ class GetOldMessagesTest(ZulipTestCase):
         """
         self.login('hamlet')
 
-        other_params = [("narrow", {}), ("anchor", 0)]
+        other_params = {"narrow": {}, "anchor": 0}
         int_params = ["num_before", "num_after"]
 
         bad_types = (False, "", "-1", -1)
@@ -2457,10 +2457,12 @@ class GetOldMessagesTest(ZulipTestCase):
             for type in bad_types:
                 # Rotate through every bad type for every integer
                 # parameter, one at a time.
-                post_params = dict(other_params + [(param, type)] +
-                                   [(other_param, 0) for other_param in
-                                    int_params[:idx] + int_params[idx + 1:]],
-                                   )
+                post_params = {
+                    **other_params,
+                    param: type,
+                    **{other_param: 0 for other_param in
+                       int_params[:idx] + int_params[idx + 1:]},
+                }
                 result = self.client_get("/json/messages", post_params)
                 self.assert_json_error(result,
                                        f"Bad value for '{param}': {type}")
@@ -2471,14 +2473,14 @@ class GetOldMessagesTest(ZulipTestCase):
         """
         self.login('hamlet')
 
-        other_params: List[Tuple[str, Union[int, str, bool]]] = [("anchor", 0), ("num_before", 0), ("num_after", 0)]
+        other_params = {"anchor": 0, "num_before": 0, "num_after": 0}
 
         bad_types: Tuple[Union[int, str, bool], ...] = (
             False, 0, '', '{malformed json,',
             '{foo: 3}', '[1,2]', '[["x","y","z"]]',
         )
         for type in bad_types:
-            post_params = dict(other_params + [("narrow", type)])
+            post_params = {**other_params, "narrow": type}
             result = self.client_get("/json/messages", post_params)
             self.assert_json_error(result,
                                    f"Bad value for 'narrow': {type}")
@@ -2538,10 +2540,9 @@ class GetOldMessagesTest(ZulipTestCase):
     def exercise_bad_narrow_operand(self, operator: str,
                                     operands: Sequence[Any],
                                     error_msg: str) -> None:
-        other_params: List[Tuple[str, Any]] = [("anchor", 0), ("num_before", 0), ("num_after", 0)]
+        other_params = {"anchor": "0", "num_before": "0", "num_after": "0"}
         for operand in operands:
-            post_params = dict(other_params + [
-                ("narrow", orjson.dumps([[operator, operand]]).decode())])
+            post_params = {**other_params, "narrow": orjson.dumps([[operator, operand]]).decode()}
             result = self.client_get("/json/messages", post_params)
             self.assert_json_error_contains(result, error_msg)
 
@@ -3199,7 +3200,7 @@ class MessageHasKeywordsTest(ZulipTestCase):
             msg_ids.append(self.send_stream_message(self.example_user('hamlet'),
                                                     'Denmark', content=msg_content))
         msgs = [Message.objects.get(id=id) for id in msg_ids]
-        self.assertTrue(all([msg.has_link for msg in msgs]))
+        self.assertTrue(all(msg.has_link for msg in msgs))
 
     def test_finds_only_links(self) -> None:
         msg_ids = []
@@ -3208,7 +3209,7 @@ class MessageHasKeywordsTest(ZulipTestCase):
             msg_ids.append(self.send_stream_message(self.example_user('hamlet'),
                                                     'Denmark', content=msg_content))
         msgs = [Message.objects.get(id=id) for id in msg_ids]
-        self.assertFalse(all([msg.has_link for msg in msgs]))
+        self.assertFalse(all(msg.has_link for msg in msgs))
 
     def update_message(self, msg: Message, content: str) -> None:
         hamlet = self.example_user('hamlet')

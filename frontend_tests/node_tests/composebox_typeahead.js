@@ -6,7 +6,7 @@ zrequire("compose_state");
 zrequire("pm_conversations");
 zrequire("templates");
 zrequire("typeahead_helper");
-zrequire("people");
+const people = zrequire("people");
 zrequire("user_groups");
 zrequire("stream_data");
 zrequire("user_pill");
@@ -251,6 +251,7 @@ people.add_active_user(hal);
 people.add_active_user(harry);
 people.add_active_user(deactivated_user);
 people.deactivate(deactivated_user);
+people.initialize_current_user(hamlet.user_id);
 
 const hamletcharacters = {
     name: "hamletcharacters",
@@ -783,13 +784,7 @@ run_test("initialize", () => {
         assert.equal(appended_name, "Othello, the Moor of Venice");
 
         let appended_names = [];
-        people.get_by_user_id = function (user_id) {
-            const users = {100: hamlet, 104: lear};
-            return users[user_id];
-        };
-        people.my_current_email = function () {
-            return "hamlet@zulip.com";
-        };
+
         compose_pm_pill.set_from_typeahead = function (item) {
             appended_names.push(item.full_name);
         };

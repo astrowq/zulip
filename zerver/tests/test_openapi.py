@@ -277,7 +277,6 @@ class OpenAPIArgumentsTest(ZulipTestCase):
         '/bots/{bot_id}',
         '/bots/{bot_id}/api_key/regenerate',
         #### These "organization settings" endpoints have low value to document:
-        '/realm/profile_fields',
         '/realm/profile_fields/{field_id}',
         '/realm/icon',
         '/realm/logo',
@@ -291,16 +290,6 @@ class OpenAPIArgumentsTest(ZulipTestCase):
         '/fetch_google_client_id',
         # API for video calls we're planning to remove/replace.
         '/calls/zoom/create',
-
-        #### Documented endpoints not properly detected by tooling.
-        # E.g. '/user_groups/<user_group_id>' in urls.py but fails the
-        # reverse mapping test because of the variable name
-        # mismatch.
-        '/user_groups/{group_id}',  # Equivalent of what's in urls.py
-        '/user_groups/{user_group_id}',  # What's in the OpenAPI docs
-        '/user_groups/{user_group_id}/members',
-        # Regex with an unnamed capturing group.
-        '/users/(?!me/)(?P<email>[^/]*)/presence',
     }
 
     # Endpoints where the documentation is currently failing our
@@ -317,15 +306,6 @@ class OpenAPIArgumentsTest(ZulipTestCase):
                 2. /events <-> r'^events$'
                 3. '/realm/domains' <-> r'/realm\\/domains$'
         """
-
-        # TODO: Probably we should be able to address the below
-        # through alternative solutions (e.g. reordering urls.py
-        # entries or similar url organization, but for now these let
-        # us test more endpoints and so are worth doing).
-        me_pattern = '/(?!me/)'
-        if me_pattern in regex_pattern:
-            # Remove the exclude-me pattern if present.
-            regex_pattern = regex_pattern.replace(me_pattern, "/")
 
         # Handle the presence-email code which has a non-slashes syntax.
         regex_pattern = regex_pattern.replace('[^/]*', '.*').replace('[^/]+', '.*')
@@ -389,41 +369,30 @@ so maybe we shouldn't mark it as intentionally undocumented in the urls.
         E.g. typing.Union[typing.List[typing.Dict[str, typing.Any]], NoneType]
         needs to be mapped to list."""
 
-        if sys.version_info < (3, 7):  # nocoverage  # python 3.5-3.6
-            if sys.version_info < (3, 6) and isinstance(t, type(Union)):  # python 3.5 has special consideration for Union
-                origin = Union
-            else:
-                origin = getattr(t, "__origin__", None)
-        else:  # nocoverage  # python3.7+
-            origin = getattr(t, "__origin__", None)
-            if origin == list:
-                origin = List
-            elif origin == dict:
-                origin = Dict
-            elif origin == abc.Iterable:
-                origin = Iterable
-            elif origin == abc.Mapping:
-                origin = Mapping
-            elif origin == abc.Sequence:
-                origin = Sequence
+        origin = getattr(t, "__origin__", None)
+        if sys.version_info < (3, 7):  # nocoverage
+            if origin == List:
+                origin = list
+            elif origin == Dict:
+                origin = dict
+            elif origin == Iterable:
+                origin = abc.Iterable
+            elif origin == Mapping:
+                origin = abc.Mapping
+            elif origin == Sequence:
+                origin = abc.Sequence
 
         if not origin:
             # Then it's most likely one of the fundamental data types
             # I.E. Not one of the data types from the "typing" module.
             return t
         elif origin == Union:
-            subtypes = []
-            if sys.version_info < (3, 6):  # nocoverage # in python3.6+
-                args = t.__union_params__
-            else:  # nocoverage # in python3.5
-                args = t.__args__
-            for st in args:
-                subtypes.append(self.get_standardized_argument_type(st))
+            subtypes = [self.get_standardized_argument_type(st) for st in t.__args__]
             return self.get_type_by_priority(subtypes)
-        elif origin in [List, Iterable, Sequence]:
+        elif origin in [list, abc.Iterable, abc.Sequence]:
             [st] = t.__args__
             return (list, self.get_standardized_argument_type(st))
-        elif origin in [Dict, Mapping]:
+        elif origin in [dict, abc.Mapping]:
             return dict
         raise AssertionError(f"Unknown origin {origin}")
 
@@ -464,7 +433,7 @@ do not match the types declared in the implementation of {function.__name__}.\n"
         Otherwise, we print out the exact differences for convenient debugging and raise an
         AssertionError. """
         openapi_params: Set[Tuple[str, Union[type, Tuple[type, object]]]] = set()
-        json_params: Dict[str, Union[type, Tuple[type, object]]] = dict()
+        json_params: Dict[str, Union[type, Tuple[type, object]]] = {}
         for element in openapi_parameters:
             name: str = element["name"]
             schema = {}

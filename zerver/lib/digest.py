@@ -127,7 +127,7 @@ def gather_hot_conversations(user_profile: UserProfile, messages: List[Message])
     # out the hot conversations.
     num_convos = len(hot_conversations)
     if num_convos < 4:
-        hot_conversations.extend([elt[0] for elt in diversity_list[num_convos:4]])
+        hot_conversations.extend(elt[0] for elt in diversity_list[num_convos:4])
 
     hot_conversation_render_payloads = []
     for h in hot_conversations:
@@ -180,9 +180,9 @@ def handle_digest_email(user_profile_id: int, cutoff: float,
     context = common_context(user_profile)
 
     # Start building email template data.
-    context.update({
-        'unsubscribe_link': one_click_unsubscribe_link(user_profile, "digest"),
-    })
+    context.update(
+        unsubscribe_link=one_click_unsubscribe_link(user_profile, "digest"),
+    )
 
     home_view_streams = Subscription.objects.filter(
         user_profile=user_profile,

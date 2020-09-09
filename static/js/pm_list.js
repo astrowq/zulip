@@ -1,5 +1,8 @@
 "use strict";
 
+const people = require("./people");
+const pm_conversations = require("./pm_conversations");
+
 let prior_dom;
 let private_messages_open = false;
 

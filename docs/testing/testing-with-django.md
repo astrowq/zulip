@@ -37,7 +37,7 @@ There are many command line options for running Zulip tests, such
 as a `--verbose` option.  The
 best way to learn the options is to use the online help:
 
-    ./tools/test-backend -h
+    ./tools/test-backend --help
 
 We also have ways to instrument our tests for finding code coverage,
 URL coverage, and slow tests.  Use the `-h` option to discover these
@@ -435,6 +435,13 @@ requires testing not only the "happy path" but also error handling
 code and edge cases.  It will generate a nice HTML report that you can
 view right from your browser (the tool prints the URL where the report
 is exposed in your development environment).
+
+- **Console output** A properly written test should print nothing to
+the console; use `with self.assertLogs` to capture and verify any
+logging output.  Note that we reconfigure various loggers in
+`zproject/test_extra_settings.py` where the output is unlikely to be
+interesting when running our test suite.  `test-backend
+--ban-console-output` checks for stray print statements.
 
 Note that `test-backend --coverage` will assert that
 various specific files in the project have 100% test coverage and

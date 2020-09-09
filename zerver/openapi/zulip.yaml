@@ -1963,6 +1963,8 @@ paths:
                               description: |
                                 Event sent when a user starts typing a private or group private message. Sent
                                 to all clients for users who would receive the message being typed.
+
+                                See the [typing endpoint docs](/api/set-typing-status) for more details.
                               properties:
                                 id:
                                   type: integer
@@ -1978,13 +1980,12 @@ paths:
                                   additionalProperties: false
                                   type: object
                                   description: |
-                                    Object containing user id and email of the sender i.e
-                                    the user who has started typing.
+                                    Object describing the "sender" (i.e. the user who is typing a message).
                                   properties:
                                     user_id:
                                       type: integer
                                       description: |
-                                        The ID of the user.
+                                        The user's ID.
                                     email:
                                       type: string
                                       description: |
@@ -1992,9 +1993,10 @@ paths:
                                 recipients:
                                   type: array
                                   description: |
-                                    Array of dictionaries, where each dictionary contains the
-                                    email and user_id of a single user who will receive the
-                                    typed message.
+                                    Array of dictionaries describing the set of users who would be recipients
+                                    of the message being typed.  Each dictionary contains details on one
+                                    one of the recipients users; the sending user is guaranteed to appear
+                                    among the recipients.
                                   items:
                                     type: object
                                     additionalProperties: false
@@ -2034,6 +2036,83 @@ paths:
                             - type: object
                               additionalProperties: false
                               description: |
+                                Event sent when a user stops typing a private or group private message. Sent
+                                to all clients for users who would receive the message that was
+                                previously being typed.
+
+                                See the [typing endpoint docs](/api/set-typing-status) for more details.
+                              properties:
+                                id:
+                                  type: integer
+                                type:
+                                  type: string
+                                  enum:
+                                    - typing
+                                op:
+                                  type: string
+                                  enum:
+                                    - stop
+                                sender:
+                                  additionalProperties: false
+                                  type: object
+                                  description: |
+                                    Object describing the "sender" (i.e. the user who was previously
+                                    typing a message).
+                                  properties:
+                                    user_id:
+                                      type: integer
+                                      description: |
+                                        The user's ID.
+                                    email:
+                                      type: string
+                                      description: |
+                                        The Zulip display email address for the user.
+                                recipients:
+                                  type: array
+                                  description: |
+                                    Array of dictionaries describing the set of users who would be recipients
+                                    of the message that stopped being typed.  Each dictionary contains
+                                    details on one one of the recipients users; the sending user is
+                                    guaranteed to appear among the recipients.
+                                  items:
+                                    type: object
+                                    additionalProperties: false
+                                    description: |
+                                      Object containing the user id and email of a recipient.
+                                    properties:
+                                      user_id:
+                                        type: integer
+                                        description: |
+                                          The ID of the user.
+                                      email:
+                                        type: string
+                                        description: |
+                                          The Zulip display email address for the user.
+                              example:
+                                {
+                                  "type": "typing",
+                                  "op": "stop",
+                                  "sender":
+                                    {
+                                      "user_id": 10,
+                                      "email": "user10@zulip.testserver",
+                                    },
+                                  "recipients":
+                                    [
+                                      {
+                                        "user_id": 8,
+                                        "email": "user8@zulip.testserver",
+                                      },
+                                      {
+                                        "user_id": 10,
+                                        "email": "user10@zulip.testserver",
+                                      },
+                                    ],
+                                  "id": 0,
+                                }
+                            - type: object
+                              additionalProperties: false
+                              description: |
                                 Event sent to a user when [message flags][message-flags] are added
                                 to a message.
                               properties:
@@ -2043,9 +2122,17 @@ paths:
                                   type: string
                                   enum:
                                     - update_message_flags
+                                op:
+                                  type: string
+                                  enum:
+                                    - add
                                 operation:
+                                  deprecated: true
                                   description: |
-                                    Whether the flags are added or removed.
+                                    Old name for `op` for this event type.
+
+                                    **Deprecated**: This is deprecated; please use `op` instead
+                                    starting with Zulip 4.0 (feature level 32).
                                   type: string
                                   enum:
                                     - add
@@ -2069,6 +2156,7 @@ paths:
                               example:
                                 {
                                   "type": "update_message_flags",
+                                  "op": "add",
                                   "operation": "add",
                                   "flag": "starred",
                                   "messages": [63],
@@ -2087,10 +2175,18 @@ paths:
                                   type: string
                                   enum:
                                     - update_message_flags
+                                op:
+                                  type: string
+                                  enum:
+                                    - remove
                                 operation:
+                                  deprecated: true
                                   type: string
                                   description: |
-                                    Whether the flags are added or removed.
+                                    Old name for `op` for this event type.
+
+                                    **Deprecated**: This is deprecated; please use `op` instead
+                                    starting with Zulip 4.0 (feature level 32).
                                   enum:
                                     - remove
                                 flag:
@@ -2112,6 +2208,7 @@ paths:
                               example:
                                 {
                                   "type": "update_message_flags",
+                                  "op": "remove",
                                   "operation": "remove",
                                   "flag": "starred",
                                   "messages": [63],
@@ -4386,7 +4483,7 @@ paths:
         Delete the requesting user from the realm.
       responses:
         "200":
-          description: Bad Request
+          description: Success.
           content:
             application/json:
               schema:
@@ -4394,7 +4491,7 @@ paths:
                   - $ref: "#/components/schemas/JsonSuccess"
                   - example: {"msg": "", "result": "success"}
         "400":
-          description: Bad Request
+          description: Bad Request.
           content:
             application/json:
               schema:
@@ -4402,7 +4499,7 @@ paths:
                   - $ref: "#/components/schemas/JsonError"
                   - example:
                       {
-                        "msg": "Cannot deactivate the only organization administrator",
+                        "msg": "Cannot deactivate the only organization owner",
                         "result": "error",
                       }
   /users/me/{stream_id}/topics:
@@ -4987,6 +5084,218 @@ paths:
                               },
                           },
                       }
+  /realm/profile_fields:
+    get:
+      operationId: get_custom_profile_fields
+      tags: ["server_and_organizations"]
+      description: |
+        Get all the [custom profile fields](/help/add-custom-profile-fields)
+        configured for the user's organization.
+
+        `GET {{ api_url }}/v1/realm/profile_fields`
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/JsonSuccess"
+                  - properties:
+                      custom_fields:
+                        type: array
+                        description: |
+                          An array containing all the custom profile fields defined in this
+                          Zulip organization.
+                        items:
+                          $ref: "#/components/schemas/CustomProfileField"
+                  - example:
+                      {
+                        "result": "success",
+                        "msg": "",
+                        "custom_fields":
+                          [
+                            {
+                              "id": 1,
+                              "name": "Phone number",
+                              "type": 1,
+                              "hint": "",
+                              "field_data": "",
+                              "order": 1,
+                            },
+                            {
+                              "id": 2,
+                              "name": "Biography",
+                              "type": 2,
+                              "hint": "What are you known for?",
+                              "field_data": "",
+                              "order": 2,
+                            },
+                            {
+                              "id": 3,
+                              "name": "Favorite food",
+                              "type": 1,
+                              "hint": "Or drink, if you'd prefer",
+                              "field_data": "",
+                              "order": 3,
+                            },
+                            {
+                              "id": 4,
+                              "name": "Favorite editor",
+                              "type": 3,
+                              "hint": "",
+                              "field_data": '{"vim":{"text":"Vim","order":"1"},"emacs":{"text":"Emacs","order":"2"}}',
+                              "order": 4,
+                            },
+                            {
+                              "id": 5,
+                              "name": "Birthday",
+                              "type": 4,
+                              "hint": "",
+                              "field_data": "",
+                              "order": 5,
+                            },
+                            {
+                              "id": 6,
+                              "name": "Favorite website",
+                              "type": 5,
+                              "hint": "Or your personal blog's URL",
+                              "field_data": "",
+                              "order": 6,
+                            },
+                            {
+                              "id": 7,
+                              "name": "Mentor",
+                              "type": 6,
+                              "hint": "",
+                              "field_data": "",
+                              "order": 7,
+                            },
+                            {
+                              "id": 8,
+                              "name": "GitHub",
+                              "type": 7,
+                              "hint": "Enter your GitHub username",
+                              "field_data": '{"subtype":"github"}',
+                              "order": 8,
+                            },
+                          ],
+                      }
+    patch:
+      operationId: reorder_custom_profile_fields
+      tags: ["server_and_organizations"]
+      description: |
+        {!api-admin-only.md!}
+
+        Reorder the custom profile fields in the user's organization.
+
+        `PATCH {{ api_url }}/v1/realm/profile_fields`
+
+        Custom profile fields are displayed in Zulip UI widgets in order; this
+        endpoint allows administrative settings UI to change the field ordering.
+
+        This endpoint is used to implement the dragging feature described in the
+        [custom profile fields documentation](/help/add-custom-profile-fields).
+      parameters:
+        - name: order
+          in: query
+          description: |
+            A list of the IDs of all the custom profile fields defined in this
+            organization, in the desired new order.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: integer
+              example: [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
+          required: true
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JsonSuccess"
+    post:
+      operationId: create_custom_profile_field
+      tags: ["server_and_organizations"]
+      description: |
+        {!api-admin-only.md!}
+
+        [Create a custom profile field](/help/add-custom-profile-fields) in the user's organization.
+
+        `POST {{ api_url }}/v1/realm/profile_fields`
+      parameters:
+        - name: name
+          in: query
+          description: |
+            The name of the custom profile field, which will appear both in
+            user-facing settings UI for configuring custom profile fields and
+            in UI displaying a user's profile.
+          schema:
+            type: string
+          example: "Favorite programming language"
+        - name: hint
+          in: query
+          description: |
+            The help text to be displayed for the custom profile field in user-facing
+            settings UI for configuring custom profile fields.
+          schema:
+            type: string
+          example: "Your favorite programming language."
+        - name: field_type
+          in: query
+          description: |
+            The field type can be any of the supported custom profile field types. See the
+            [custom profile fields documentation](/help/add-custom-profile-fields)
+            more details on what each type means.
+
+            * **1**: Short text
+            * **2**: Long text
+            * **3**: List of options
+            * **4**: Date picker
+            * **5**: Link
+            * **6**: Person picker
+            * **7**: External account
+          schema:
+            type: integer
+          example: 3
+          required: true
+        - name: field_data
+          in: query
+          description: |
+            Field types 3 (List of options) and 7 (External account) support storing
+            additional configuration for the field type in the `field_data` attribute.
+
+            For field type 3 (List of options), this attribute is a JSON dictionary
+            defining the choices and the order they will be displayed in the
+            dropdown UI for individual users to select an option.
+
+            The interface for field type 7 is not yet stabilized.
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                {
+                  "python": {"text": "Python", "order": "1"},
+                  "java": {"text": "Java", "order": "2"},
+                }
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/JsonSuccess"
+                  - properties:
+                      id:
+                        type: integer
+                        description: |
+                          The ID for the custom profile field.
+                  - example: {"result": "success", "msg": "", "id": 9}
   /users/me/subscriptions/properties:
     post:
       operationId: update_subscription_settings
@@ -5288,7 +5597,7 @@ paths:
                   - $ref: "#/components/schemas/JsonError"
                   - example:
                       {
-                        "msg": "Cannot deactivate the only organization administrator",
+                        "msg": "Cannot deactivate the only organization owner",
                         "result": "error",
                       }
   /realm/filters:
@@ -6786,9 +7095,10 @@ paths:
                             hint:
                               type: string
                               description: |
-                                Text that can be shown to the user to
-                                provide the users with a hint as to
-                                what account they have to provide.
+                                The help text to be displayed for the
+                                custom profile field in user-facing
+                                settings UI for configuring custom
+                                profile fields for this account.
                             url_pattern:
                               type: string
                               description: |
@@ -7764,12 +8074,34 @@ paths:
       operationId: set_typing_status
       tags: ["users"]
       description: |
-        Send an event indicating that the user has started or stopped typing
-        on their client.  See
-        [the typing notification docs](https://zulip.readthedocs.io/en/latest/subsystems/typing-indicators.html)
-        for details on Zulip's typing notifications protocol.
+        Notify other users whether the current user is typing a message.
 
         `POST {{ api_url }}/v1/typing`
+
+        Clients implementing Zulip's typing notifications protocol should work as follows:
+
+        * Send a request to this endpoint with `op="start"` when a user starts typing
+          a private message or group private message, and also every
+          `TYPING_STARTED_WAIT_PERIOD=10` seconds that the user continues to actively type
+          or otherwise interact with the compose UI (E.g. interacting with the compose box
+          emoji picker).
+        * Send a request to this endpoint with `op="stop"` when a user pauses using the
+          compose UI for at least `TYPING_STOPPED_WAIT_PERIOD=5` seconds or cancels
+          the compose action (if it had previously sent a "start" operation for that
+          compose action).
+        * Start displaying "Sender is typing" for a given conversation when the client
+          receives an `op="start"` event from the [events API](/api/get-events).
+        * Continue displaying "Sender is typing" until they receive an `op="stop"` event
+          from the [events API](/api/get-events) or `TYPING_STARTED_EXPIRY_PERIOD=15`
+          seconds have passed without a new `op="start"` event for that conversation.
+
+        This protocol is designed to allow the server-side typing notifications implementation
+        to be stateless while being resilient; network failures cannot result in a user being
+        incorrectly displayed as perpetually typing.
+
+        See
+        [the typing notification docs](https://zulip.readthedocs.io/en/latest/subsystems/typing-indicators.html)
+        for additional design details on Zulip's typing notifications protocol.
       parameters:
         - name: op
           in: query
@@ -7869,16 +8201,54 @@ paths:
                         "code": "BAD_REQUEST",
                         "msg": "Invalid user ID: 500",
                       }
-  /user_groups/{group_id}:
+  /user_groups/{user_group_id}/members:
+    post:
+      operationId: update_user_group_members
+      tags: ["users"]
+      description: |
+        Update the members of a [user group](/help/user-groups).
+
+        `POST {{ api_url }}/v1/user_groups/{user_group_id}/members`
+      parameters:
+        - $ref: "#/components/parameters/UserGroupId"
+          example: 1
+        - name: delete
+          in: query
+          description: |
+            The list of user ids to be removed from the user group.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: integer
+              example: [10]
+          required: false
+        - name: add
+          in: query
+          description: |
+            The list of user ids to be added to the user group.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: integer
+              example: [12, 13]
+          required: false
+      responses:
+        "200":
+          $ref: "#/components/responses/SimpleSuccess"
+  /user_groups/{user_group_id}:
     patch:
       operationId: update_user_group
       tags: ["users"]
       description: |
         Update the name or description of a [user group](/help/user-groups).
 
-        `PATCH {{ api_url }}/v1/user_groups/{group_id}`
+        `PATCH {{ api_url }}/v1/user_groups/{user_group_id}`
       parameters:
-        - $ref: "#/components/parameters/GroupId"
+        - $ref: "#/components/parameters/UserGroupId"
         - name: name
           in: query
           description: |
@@ -7918,9 +8288,9 @@ paths:
       description: |
         Delete a [user group](/help/user-groups).
 
-        `DELETE {{ api_url }}/v1/user_groups/{group_id}`
+        `DELETE {{ api_url }}/v1/user_groups/{user_group_id}`
       parameters:
-        - $ref: "#/components/parameters/GroupId"
+        - $ref: "#/components/parameters/UserGroupId"
       responses:
         "200":
           description: Success.
@@ -8062,6 +8432,10 @@ paths:
                 type: object
                 additionalProperties: false
                 properties:
+                  bot_email:
+                    type: string
+                    description: |
+                      Email of the bot user.
                   data:
                     type: string
                     description: |
@@ -8074,8 +8448,8 @@ paths:
                   token:
                     type: string
                     description: |
-                      A string of alphanumeric characters that can be use to authenticate the
-                      webhook request.  You can get the token used by a given outgoing webhook bot
+                      A string of alphanumeric characters that can be used to authenticate the
+                      webhook request (each bot user uses a fixed token). You can get the token used by a given outgoing webhook bot
                       in the `zuliprc` file downloaded when creating the bot.
                   message:
                     allOf:
@@ -8088,10 +8462,6 @@ paths:
                             type: string
                             description: |
                               The content/body of the message rendered in HTML.
-                  bot_email:
-                    type: string
-                    description: |
-                      Email of the bot user.
                 example:
                   {
                     "data": "@**Outgoing Webhook Test** Zulip is the world\u2019s most productive group chat!",
@@ -8446,20 +8816,35 @@ components:
       type: object
       additionalProperties: false
       description: |
-        Dictionary containing details of a single custom profile field.
+        Dictionary containing the details of a custom profile field configured
+        for this organization.
       properties:
         id:
           type: integer
           description: |
-            The id of the custom profile field.
+            The ID of the custom profile field.  This will be referenced in custom
+            the profile fields section of user objects.
         type:
           type: integer
           description: |
-            The type of the custom profile field.
+            An integer indicating the type of the custom profile field, which determines
+            how it is configured and displayed to users.
+
+            See the [Add custom profile fields](/help/add-custom-profile-fields)
+            article for details on what each type means.
+
+            * **1**: Short text
+            * **2**: Long text
+            * **3**: List of options
+            * **4**: Date picker
+            * **5**: Link
+            * **6**: Person picker
+            * **7**: External account
         order:
           type: integer
           description: |
-            The order of the custom profile field.
+            Custom profile fields are displayed in both settings UI and
+            UI showing users' profiles in increasing `order`.
         name:
           type: string
           description: |
@@ -8467,12 +8852,19 @@ components:
         hint:
           type: string
           description: |
-            A hint regarding the custom profile field.
-            For example, 'What are you known for?'.
+            The help text to be displayed for the custom profile field in user-facing
+            settings UI for configuring custom profile fields.
         field_data:
           type: string
           description: |
-            The data related to the custom profile field.
+            Field types 3 (List of options) and 7 (External account) support storing
+            additional configuration for the field type in the `field_data` attribute.
+
+            For field type 3 (List of options), this attribute is a JSON dictionary
+            defining the choices and the order they will be displayed in the
+            dropdown UI for individual users to select an option.
+
+            The interface for field type 7 is not yet stabilized.
     Hotspot:
       type: object
       additionalProperties: false
@@ -9464,8 +9856,8 @@ components:
             default: []
           example: [["stream", "Denmark"]]
       required: false
-    GroupId:
-      name: group_id
+    UserGroupId:
+      name: user_group_id
       in: path
       description: |
         The ID of the target user group.

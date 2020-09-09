@@ -15,6 +15,40 @@ let current_topic_sidebar_elem;
 let all_messages_sidebar_elem;
 let starred_messages_sidebar_elem;
 
+function get_popover_menu_items(sidebar_elem) {
+    if (!sidebar_elem) {
+        blueslip.error("Trying to get menu items when action popover is closed.");
+        return;
+    }
+
+    const popover_data = $(sidebar_elem).data("popover");
+    if (!popover_data) {
+        blueslip.error("Cannot find popover data for stream sidebar menu.");
+        return;
+    }
+    return $("li:not(.divider):visible > a", popover_data.$tip);
+}
+
+exports.stream_sidebar_menu_handle_keyboard = (key) => {
+    const items = get_popover_menu_items(current_stream_sidebar_elem);
+    popovers.popover_items_handle_keyboard(key, items);
+};
+
+exports.topic_sidebar_menu_handle_keyboard = (key) => {
+    const items = get_popover_menu_items(current_topic_sidebar_elem);
+    popovers.popover_items_handle_keyboard(key, items);
+};
+
+exports.all_messages_sidebar_menu_handle_keyboard = (key) => {
+    const items = get_popover_menu_items(all_messages_sidebar_elem);
+    popovers.popover_items_handle_keyboard(key, items);
+};
+
+exports.starred_messages_sidebar_menu_handle_keyboard = (key) => {
+    const items = get_popover_menu_items(starred_messages_sidebar_elem);
+    popovers.popover_items_handle_keyboard(key, items);
+};
+
 function elem_to_stream_id(elem) {
     const stream_id = parseInt(elem.attr("data-stream-id"), 10);
 
@@ -294,7 +328,6 @@ function build_move_topic_to_stream_popover(e, current_stream_id, topic_name) {
     });
 
     $("#move_topic_modal").modal("show");
-    e.stopPropagation();
 }
 
 exports.register_click_handlers = function () {
@@ -610,6 +643,7 @@ exports.register_topic_handlers = function () {
             ]),
         };
 
+        message_edit.show_topic_move_spinner();
         channel.get({
             url: "/json/messages",
             data,
@@ -631,10 +665,10 @@ exports.register_topic_handlers = function () {
                         send_notification_to_new_thread,
                         send_notification_to_old_thread,
                     );
-                    $("#move_topic_modal").modal("hide");
                 }
             },
             error(xhr) {
+                message_edit.hide_topic_move_spinner();
                 show_error_msg(xhr.responseJSON.msg);
             },
         });

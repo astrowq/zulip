@@ -27,7 +27,7 @@ from sqlalchemy.sql import (
     union_all,
 )
 
-from zerver.context_processors import get_realm_from_request
+from zerver.context_processors import get_valid_realm_from_request
 from zerver.decorator import REQ, has_request_variables
 from zerver.lib.actions import recipient_for_user_profiles
 from zerver.lib.addressee import get_user_profiles, get_user_profiles_by_ids
@@ -870,10 +870,7 @@ def get_messages_backend(request: HttpRequest,
         if not is_web_public_compatible(narrow):
             return json_unauthorized()
 
-        realm = get_realm_from_request(request)
-        if realm is None:
-            return json_error(_("Invalid subdomain."))
-
+        realm = get_valid_realm_from_request(request)
         # We use None to indicate unauthenticated requests as it's more
         # readable than using AnonymousUser, and the lack of Django
         # stubs means that mypy can't check AnonymousUser well.
@@ -1024,7 +1021,7 @@ def get_messages_backend(request: HttpRequest,
             user_message_flags[message_id] = UserMessage.flags_list_for_flags(flags)
             message_ids.append(message_id)
 
-    search_fields: Dict[int, Dict[str, str]] = dict()
+    search_fields: Dict[int, Dict[str, str]] = {}
     if is_search:
         for row in rows:
             message_id = row[0]
@@ -1231,7 +1228,7 @@ def messages_in_narrow_backend(request: HttpRequest, user_profile: UserProfile,
     sa_conn = get_sqlalchemy_connection()
     query_result = list(sa_conn.execute(query).fetchall())
 
-    search_fields = dict()
+    search_fields = {}
     for row in query_result:
         message_id = row['message_id']
         topic_name = row[DB_TOPIC_NAME]

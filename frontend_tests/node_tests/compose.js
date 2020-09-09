@@ -3,7 +3,7 @@
 const {JSDOM} = require("jsdom");
 const rewiremock = require("rewiremock/node");
 
-const events = require("./lib/events.js");
+const events = require("./lib/events");
 
 set_global("bridge", false);
 
@@ -11,8 +11,11 @@ const noop = function () {};
 
 set_global("$", global.make_zjquery());
 set_global("DOMParser", new JSDOM().window.DOMParser);
+set_global("compose_actions", {
+    update_placeholder_text: noop,
+});
 
-const LazySet = zrequire("lazy_set.js").LazySet;
+const LazySet = zrequire("lazy_set").LazySet;
 
 const _navigator = {
     platform: "",
@@ -73,7 +76,7 @@ zrequire("rtl");
 zrequire("common");
 zrequire("stream_data");
 zrequire("compose_state");
-zrequire("people");
+const people = zrequire("people");
 zrequire("input_pill");
 zrequire("user_pill");
 zrequire("compose_pm_pill");

@@ -1,5 +1,6 @@
 "use strict";
 
+const people = require("./people");
 const util = require("./util");
 
 exports.initialize_pill = function () {
@@ -9,6 +10,8 @@ exports.initialize_pill = function () {
         container,
         create_item_from_text: user_pill.create_item_from_email,
         get_text_from_item: user_pill.get_email_from_item,
+        onPillCreate: input_pill.onPillCreate,
+        onPillRemove: input_pill.onPillRemove,
     });
 
     return pill;
@@ -16,6 +19,14 @@ exports.initialize_pill = function () {
 
 exports.initialize = function () {
     exports.widget = exports.initialize_pill();
+
+    exports.widget.onPillCreate(() => {
+        compose_actions.update_placeholder_text();
+    });
+
+    exports.widget.onPillRemove(() => {
+        compose_actions.update_placeholder_text();
+    });
 };
 
 exports.clear = function () {

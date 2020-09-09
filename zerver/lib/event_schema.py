@@ -80,7 +80,7 @@ def check_events_dict(
     assert "type" in rkeys
     assert "id" not in keys
     return check_dict_only(
-        required_keys=list(required_keys) + [("id", check_int)],
+        required_keys=[*required_keys, ("id", check_int)],
         optional_keys=optional_keys,
     )
 
@@ -669,6 +669,15 @@ check_typing_start = check_events_dict(
     ]
 )
 
+check_typing_stop = check_events_dict(
+    required_keys=[
+        ("type", equals("typing")),
+        ("op", equals("stop")),
+        ("sender", _check_typing_person),
+        ("recipients", check_list(_check_typing_person)),
+    ]
+)
+
 _check_update_display_settings = check_events_dict(
     required_keys=[
         ("type", equals("update_display_settings")),
@@ -811,6 +820,7 @@ check_update_message_embedded = check_events_dict(
 _check_update_message_flags = check_events_dict(
     required_keys=[
         ("type", equals("update_message_flags")),
+        ("op", check_add_or_remove),
         ("operation", check_add_or_remove),
         ("flag", check_string),
         ("messages", check_list(check_int)),
@@ -823,7 +833,7 @@ def check_update_message_flags(
     var_name: str, event: Dict[str, object], operation: str
 ) -> None:
     _check_update_message_flags(var_name, event)
-    assert event["operation"] == operation
+    assert event["operation"] == operation and event['op'] == operation
 
 
 _check_group = check_dict_only(

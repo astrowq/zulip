@@ -101,14 +101,14 @@ class TestGetChartData(ZulipTestCase):
             insert_time = self.end_times_day[2]
             fill_time = self.end_times_day[-1]
 
-        RealmCount.objects.bulk_create([
+        RealmCount.objects.bulk_create(
             RealmCount(property=stat.property, subgroup=subgroup, end_time=insert_time,
                        value=100+i, realm=self.realm)
-            for i, subgroup in enumerate(realm_subgroups)])
-        UserCount.objects.bulk_create([
+            for i, subgroup in enumerate(realm_subgroups))
+        UserCount.objects.bulk_create(
             UserCount(property=stat.property, subgroup=subgroup, end_time=insert_time,
                       value=200+i, realm=self.realm, user=self.user)
-            for i, subgroup in enumerate(user_subgroups)])
+            for i, subgroup in enumerate(user_subgroups))
         FillState.objects.create(property=stat.property, end_time=fill_time, state=FillState.DONE)
 
     def test_number_of_humans(self) -> None:
@@ -302,7 +302,7 @@ class TestGetChartData(ZulipTestCase):
         data = result.json()
         end_times = [ceiling_to_day(self.realm.date_created) + timedelta(days=i) for i in range(-1, 4)]
         self.assertEqual(data['end_times'], [datetime_to_timestamp(dt) for dt in end_times])
-        self.assertEqual(data['everyone'], {'_1day': [0]+self.data(100), '_15day': [0]+self.data(100), 'all_time': [0]+self.data(100)})
+        self.assertEqual(data['everyone'], {'_1day': [0, *self.data(100)], '_15day': [0, *self.data(100)], 'all_time': [0, *self.data(100)]})
 
     def test_non_existent_chart(self) -> None:
         result = self.client_get('/json/analytics/chart_data',

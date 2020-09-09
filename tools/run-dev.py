@@ -48,20 +48,19 @@ parser.add_argument('--minify',
                     action='store_true',
                     help='Minifies assets for testing in dev')
 parser.add_argument('--interface',
-                    action='store',
-                    default=None, help='Set the IP or hostname for the proxy to listen on')
+                    help='Set the IP or hostname for the proxy to listen on')
 parser.add_argument('--no-clear-memcached',
                     action='store_false', dest='clear_memcached',
-                    default=True, help='Do not clear memcached')
+                    help='Do not clear memcached')
 parser.add_argument('--streamlined',
                     action="store_true",
-                    default=False, help='Avoid thumbor, etc.')
+                    help='Avoid thumbor, etc.')
 parser.add_argument('--force',
                     action="store_true",
-                    default=False, help='Run command despite possible problems.')
+                    help='Run command despite possible problems.')
 parser.add_argument('--enable-tornado-logging',
                     action="store_true",
-                    default=False, help='Enable access logs from tornado proxy server.')
+                    help='Enable access logs from tornado proxy server.')
 options = parser.parse_args()
 
 assert_provisioning_status_ok(options.force)
@@ -87,7 +86,7 @@ base_port = 9991
 if options.test:
     base_port = 9981
     settings_module = "zproject.test_settings"
-    # Don't auto-reload when running casper tests
+    # Don't auto-reload when running puppeteer tests
     runserver_args = ['--noreload']
 else:
     settings_module = "zproject.settings"
@@ -123,7 +122,7 @@ os.setpgrp()
 # terminal in question.
 
 if options.test:
-    pid_file_path = os.path.join(os.path.join(os.getcwd(), 'var/casper/run_dev.pid'))
+    pid_file_path = os.path.join(os.path.join(os.getcwd(), 'var/puppeteer/run_dev.pid'))
 else:
     pid_file_path = os.path.join(os.path.join(os.getcwd(), 'var/run/run_dev.pid'))
 
@@ -135,10 +134,10 @@ with open(pid_file_path, 'w+') as f:
 
 def server_processes() -> List[List[str]]:
     main_cmds = [
-        ['./manage.py', 'runserver'] +
-        manage_args + runserver_args + [f'127.0.0.1:{django_port}'],
-        ['env', 'PYTHONUNBUFFERED=1', './manage.py', 'runtornado'] +
-        manage_args + [f'127.0.0.1:{tornado_port}'],
+        ['./manage.py', 'runserver',
+         *manage_args, *runserver_args, f'127.0.0.1:{django_port}'],
+        ['env', 'PYTHONUNBUFFERED=1', './manage.py', 'runtornado',
+         *manage_args, f'127.0.0.1:{tornado_port}'],
     ]
 
     if options.streamlined:
@@ -147,12 +146,12 @@ def server_processes() -> List[List[str]]:
         return main_cmds
 
     other_cmds = [
-        ['./manage.py', 'process_queue', '--all'] + manage_args,
+        ['./manage.py', 'process_queue', '--all', *manage_args],
         ['env', 'PGHOST=127.0.0.1',  # Force password authentication using .pgpass
          './puppet/zulip/files/postgresql/process_fts_updates', '--quiet'],
         ['./manage.py', 'deliver_scheduled_messages'],
-        ['/srv/zulip-thumbor-venv/bin/thumbor', '-c', './zthumbor/thumbor_settings.py',
-         '-p', f'{thumbor_port}'],
+        ['/srv/zulip-thumbor-venv/bin/thumbor', '--conf=./zthumbor/thumbor_settings.py',
+         f'--port={thumbor_port}'],
     ]
 
     # NORMAL (but slower) operation:
@@ -161,12 +160,12 @@ def server_processes() -> List[List[str]]:
 def do_one_time_webpack_compile() -> None:
     # We just need to compile webpack assets once at startup, not run a daemon,
     # in test mode.  Additionally, webpack-dev-server doesn't support running 2
-    # copies on the same system, so this model lets us run the casper tests
+    # copies on the same system, so this model lets us run the puppeteer tests
     # with a running development server.
     subprocess.check_call(['./tools/webpack', '--quiet', '--test'])
 
 def start_webpack_watcher() -> None:
-    webpack_cmd = ['./tools/webpack', '--watch', '--port', str(webpack_port)]
+    webpack_cmd = ['./tools/webpack', '--watch', f'--port={webpack_port}']
     if options.minify:
         webpack_cmd.append('--minify')
     if options.interface is None:
@@ -174,9 +173,9 @@ def start_webpack_watcher() -> None:
         # to disable the webpack host check so that webpack will serve assets.
         webpack_cmd.append('--disable-host-check')
     if options.interface:
-        webpack_cmd += ["--host", options.interface]
+        webpack_cmd.append(f"--host={options.interface}")
     else:
-        webpack_cmd += ["--host", "0.0.0.0"]
+        webpack_cmd.append("--host=0.0.0.0")
     subprocess.Popen(webpack_cmd)
 
 def transform_url(protocol: str, path: str, query: str, target_port: int, target_host: str) -> str:

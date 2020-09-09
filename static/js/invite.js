@@ -99,6 +99,8 @@ function submit_invitation_form() {
         },
         complete() {
             $("#submit-invitation").button("reset");
+            $("#invitee_emails").focus();
+            ui.get_scroll_element($("#invite_user_form .modal-body"))[0].scrollTop = 0;
         },
     });
 }
@@ -154,7 +156,6 @@ function prepare_form_to_be_shown() {
 exports.launch = function () {
     $("#submit-invitation").button();
     prepare_form_to_be_shown();
-    autosize($("#invitee_emails").trigger("focus"));
 
     overlays.open_overlay({
         name: "invite",
@@ -163,17 +164,24 @@ exports.launch = function () {
             hashchange.exit_overlay();
         },
     });
+
+    autosize($("#invitee_emails").trigger("focus"));
+
+    // Ctrl + Enter key to submit form
+    $("#invite-user").on("keydown", (e) => {
+        if (e.key === "Enter" && e.ctrlKey) {
+            submit_invitation_form();
+        }
+    });
 };
 
 exports.initialize = function () {
-    $(document).on("click", ".invite_check_all_button", (e) => {
+    $(document).on("click", "#invite_check_all_button", () => {
         $("#streams_to_add :checkbox").prop("checked", true);
-        e.preventDefault();
     });
 
-    $(document).on("click", ".invite_uncheck_all_button", (e) => {
+    $(document).on("click", "#invite_uncheck_all_button", () => {
         $("#streams_to_add :checkbox").prop("checked", false);
-        e.preventDefault();
     });
 
     $("#submit-invitation").on("click", () => {

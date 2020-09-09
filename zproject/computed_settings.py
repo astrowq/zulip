@@ -99,11 +99,13 @@ TEST_SUITE = False
 # The new user tutorial is enabled by default, but disabled for client tests.
 TUTORIAL_ENABLED = True
 # This is overridden in test_settings.py for the test suites
-CASPER_TESTS = False
+PUPPETEER_TESTS = False
 # This is overridden in test_settings.py for the test suites
 RUNNING_OPENAPI_CURL_TEST = False
 # This is overridden in test_settings.py for the test suites
 GENERATE_STRIPE_FIXTURES = False
+# This is overridden in test_settings.py for the test suites
+BAN_CONSOLE_OUTPUT = False
 
 # Google Compute Engine has an /etc/boto.cfg that is "nicely
 # configured" to work with GCE's storage service.  However, their
@@ -294,19 +296,19 @@ DATABASES: Dict[str, Dict[str, Any]] = {"default": {
 
 if DEVELOPMENT:
     LOCAL_DATABASE_PASSWORD = get_secret("local_database_password")
-    DATABASES["default"].update({
-        'PASSWORD': LOCAL_DATABASE_PASSWORD,
-        'HOST': 'localhost',
-    })
+    DATABASES["default"].update(
+        PASSWORD=LOCAL_DATABASE_PASSWORD,
+        HOST='localhost',
+    )
 elif REMOTE_POSTGRES_HOST != '':
-    DATABASES['default'].update({
-        'HOST': REMOTE_POSTGRES_HOST,
-        'PORT': REMOTE_POSTGRES_PORT,
-    })
+    DATABASES['default'].update(
+        HOST=REMOTE_POSTGRES_HOST,
+        PORT=REMOTE_POSTGRES_PORT,
+    )
     if get_secret("postgres_password") is not None:
-        DATABASES['default'].update({
-            'PASSWORD': get_secret("postgres_password"),
-        })
+        DATABASES['default'].update(
+            PASSWORD=get_secret("postgres_password"),
+        )
     if REMOTE_POSTGRES_SSLMODE != '':
         DATABASES['default']['OPTIONS']['sslmode'] = REMOTE_POSTGRES_SSLMODE
     else:
@@ -467,19 +469,24 @@ TWITTER_ACCESS_TOKEN_SECRET = get_secret("twitter_access_token_secret")
 # These are the bots that Zulip sends automated messages as.
 INTERNAL_BOTS = [{'var_name': 'NOTIFICATION_BOT',
                   'email_template': 'notification-bot@%s',
-                  'name': 'Notification Bot'},
+                  'name': 'Notification Bot',
+                  },
                  {'var_name': 'EMAIL_GATEWAY_BOT',
                   'email_template': 'emailgateway@%s',
-                  'name': 'Email Gateway'},
+                  'name': 'Email Gateway',
+                  },
                  {'var_name': 'NAGIOS_SEND_BOT',
                   'email_template': 'nagios-send-bot@%s',
-                  'name': 'Nagios Send Bot'},
+                  'name': 'Nagios Send Bot',
+                  },
                  {'var_name': 'NAGIOS_RECEIVE_BOT',
                   'email_template': 'nagios-receive-bot@%s',
-                  'name': 'Nagios Receive Bot'},
+                  'name': 'Nagios Receive Bot',
+                  },
                  {'var_name': 'WELCOME_BOT',
                   'email_template': 'welcome-bot@%s',
-                  'name': 'Welcome Bot'}]
+                  'name': 'Welcome Bot',
+                  }]
 
 # Bots that are created for each realm like the reminder-bot goes here.
 REALM_INTERNAL_BOTS: List[Dict[str, str]] = []
@@ -488,17 +495,20 @@ REALM_INTERNAL_BOTS: List[Dict[str, str]] = []
 DISABLED_REALM_INTERNAL_BOTS = [
     {'var_name': 'REMINDER_BOT',
      'email_template': 'reminder-bot@%s',
-     'name': 'Reminder Bot'},
+     'name': 'Reminder Bot',
+     },
 ]
 
 if PRODUCTION:
     INTERNAL_BOTS += [
         {'var_name': 'NAGIOS_STAGING_SEND_BOT',
          'email_template': 'nagios-staging-send-bot@%s',
-         'name': 'Nagios Staging Send Bot'},
+         'name': 'Nagios Staging Send Bot',
+         },
         {'var_name': 'NAGIOS_STAGING_RECEIVE_BOT',
          'email_template': 'nagios-staging-receive-bot@%s',
-         'name': 'Nagios Staging Receive Bot'},
+         'name': 'Nagios Staging Receive Bot',
+         },
     ]
 
 INTERNAL_BOT_DOMAIN = "zulip.com"
@@ -597,9 +607,9 @@ base_template_engine_settings: Dict[str, Any] = {
 }
 
 default_template_engine_settings = deepcopy(base_template_engine_settings)
-default_template_engine_settings.update({
-    'NAME': 'Jinja2',
-    'DIRS': [
+default_template_engine_settings.update(
+    NAME='Jinja2',
+    DIRS=[
         # The main templates directory
         os.path.join(DEPLOY_ROOT, 'templates'),
         # The webhook integration templates
@@ -607,20 +617,20 @@ default_template_engine_settings.update({
         # The python-zulip-api:zulip_bots package templates
         os.path.join('static' if DEBUG else STATIC_ROOT, 'generated', 'bots'),
     ],
-    'APP_DIRS': True,
-})
+    APP_DIRS=True,
+)
 
 non_html_template_engine_settings = deepcopy(base_template_engine_settings)
-non_html_template_engine_settings.update({
-    'NAME': 'Jinja2_plaintext',
-    'DIRS': [os.path.join(DEPLOY_ROOT, 'templates')],
-    'APP_DIRS': False,
-})
-non_html_template_engine_settings['OPTIONS'].update({
-    'autoescape': False,
-    'trim_blocks': True,
-    'lstrip_blocks': True,
-})
+non_html_template_engine_settings.update(
+    NAME='Jinja2_plaintext',
+    DIRS=[os.path.join(DEPLOY_ROOT, 'templates')],
+    APP_DIRS=False,
+)
+non_html_template_engine_settings['OPTIONS'].update(
+    autoescape=False,
+    trim_blocks=True,
+    lstrip_blocks=True,
+)
 
 # django-two-factor uses the default Django template engine (not Jinja2), so we
 # need to add config for it here.
@@ -693,10 +703,10 @@ else:
 # This is disabled in a few tests.
 LOGGING_ENABLED = True
 
-DEFAULT_ZULIP_HANDLERS = (
-    (['zulip_admins'] if ERROR_REPORTING else []) +
-    ['console', 'file', 'errors_file']
-)
+DEFAULT_ZULIP_HANDLERS = [
+    *(['zulip_admins'] if ERROR_REPORTING else []),
+    'console', 'file', 'errors_file',
+]
 
 LOGGING: Dict[str, Any] = {
     'version': 1,
@@ -890,7 +900,7 @@ LOGGING: Dict[str, Any] = {
         },
         'zulip.auth': {
             'level': 'DEBUG',
-            'handlers': DEFAULT_ZULIP_HANDLERS + ['auth_file'],
+            'handlers': [*DEFAULT_ZULIP_HANDLERS, 'auth_file'],
             'propagate': False,
         },
         'zulip.ldap': {
@@ -955,20 +965,16 @@ POLL_TIMEOUT = 90 * 1000
 # SSO AND LDAP SETTINGS
 ########################################################################
 
+USING_LDAP = "zproject.backends.ZulipLDAPAuthBackend" in AUTHENTICATION_BACKENDS
+ONLY_LDAP = AUTHENTICATION_BACKENDS == ("zproject.backends.ZulipLDAPAuthBackend",)
 USING_APACHE_SSO = ('zproject.backends.ZulipRemoteUserBackend' in AUTHENTICATION_BACKENDS)
+ONLY_SSO = AUTHENTICATION_BACKENDS == ("zproject.backends.ZulipRemoteUserBackend",)
 
-ONLY_LDAP = False
-if len(AUTHENTICATION_BACKENDS) == 1 and (AUTHENTICATION_BACKENDS[0] ==
-                                          "zproject.backends.ZulipLDAPAuthBackend"):
-    ONLY_LDAP = True
-
-if len(AUTHENTICATION_BACKENDS) == 1 and (AUTHENTICATION_BACKENDS[0] ==
-                                          "zproject.backends.ZulipRemoteUserBackend"):
+if ONLY_SSO:
     HOME_NOT_LOGGED_IN = "/accounts/login/sso/"
-    ONLY_SSO = True
 else:
     HOME_NOT_LOGGED_IN = '/login/'
-    ONLY_SSO = False
+
 AUTHENTICATION_BACKENDS += ('zproject.backends.ZulipDummyBackend',)
 
 # Redirect to /devlogin/ by default in dev mode
@@ -978,13 +984,10 @@ if DEVELOPMENT:
 
 POPULATE_PROFILE_VIA_LDAP = bool(AUTH_LDAP_SERVER_URI)
 
-if POPULATE_PROFILE_VIA_LDAP and \
-   'zproject.backends.ZulipLDAPAuthBackend' not in AUTHENTICATION_BACKENDS:
+if POPULATE_PROFILE_VIA_LDAP and not USING_LDAP:
     AUTHENTICATION_BACKENDS += ('zproject.backends.ZulipLDAPUserPopulator',)
 else:
-    POPULATE_PROFILE_VIA_LDAP = (
-        'zproject.backends.ZulipLDAPAuthBackend' in AUTHENTICATION_BACKENDS or
-        POPULATE_PROFILE_VIA_LDAP)
+    POPULATE_PROFILE_VIA_LDAP = USING_LDAP or POPULATE_PROFILE_VIA_LDAP
 
 if POPULATE_PROFILE_VIA_LDAP:
     import ldap
@@ -1004,11 +1007,7 @@ if REGISTER_LINK_DISABLED is None:
     # The default for REGISTER_LINK_DISABLED is a bit more
     # complicated: we want it to be disabled by default for people
     # using the LDAP backend that auto-creates users on login.
-    if (len(AUTHENTICATION_BACKENDS) == 2 and
-            ('zproject.backends.ZulipLDAPAuthBackend' in AUTHENTICATION_BACKENDS)):
-        REGISTER_LINK_DISABLED = True
-    else:
-        REGISTER_LINK_DISABLED = False
+    REGISTER_LINK_DISABLED = ONLY_LDAP
 
 ########################################################################
 # SOCIAL AUTHENTICATION SETTINGS

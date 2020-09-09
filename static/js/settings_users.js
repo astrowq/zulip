@@ -4,6 +4,7 @@ const render_admin_bot_form = require("../templates/admin_bot_form.hbs");
 const render_admin_human_form = require("../templates/admin_human_form.hbs");
 const render_admin_user_list = require("../templates/admin_user_list.hbs");
 
+const people = require("./people");
 const settings_config = require("./settings_config");
 const settings_data = require("./settings_data");
 
@@ -110,7 +111,7 @@ function update_view_on_reactivate(row) {
     button.addClass("btn-danger deactivate");
     button.removeClass("btn-warning reactivate");
     button.attr("title", "Deactivate");
-    button.html('<i class="fa fa-user-plus" aria-hidden="true"></i>');
+    button.html('<i class="fa fa-user-times" aria-hidden="true"></i>');
     row.removeClass("deactivated_user");
 
     if (user_role) {

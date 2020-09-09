@@ -2,13 +2,7 @@
 
 set_global("$", global.make_zjquery());
 
-const _people = {
-    small_avatar_url_for_person() {
-        return "http://example.com/example.png";
-    },
-};
-
-set_global("people", _people);
+const people = zrequire("people");
 
 zrequire("compose_pm_pill");
 zrequire("input_pill");
@@ -124,6 +118,10 @@ run_test("pills", () => {
     }
 
     input_pill.create = input_pill_stub;
+
+    // We stub the return value of input_pill.create(), manually add widget functions to it.
+    pills.onPillCreate = () => {};
+    pills.onPillRemove = () => {};
 
     compose_pm_pill.initialize();
     assert(compose_pm_pill.widget);

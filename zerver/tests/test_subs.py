@@ -63,6 +63,7 @@ from zerver.lib.streams import (
 from zerver.lib.test_classes import ZulipTestCase
 from zerver.lib.test_helpers import (
     get_subscription,
+    most_recent_usermessage,
     queries_captured,
     reset_emails_in_zulip_realm,
     tornado_redirected_to_list,
@@ -551,6 +552,32 @@ class StreamAdminTest(ZulipTestCase):
 
         do_deactivate_stream(streams_to_remove[0])
         self.assertEqual(get_streams(default_stream_groups[0]), streams_to_keep)
+
+    def test_deactivate_stream_marks_messages_as_read(self) -> None:
+        hamlet = self.example_user("hamlet")
+        cordelia = self.example_user("cordelia")
+        stream = self.make_stream('new_stream')
+        self.subscribe(hamlet, stream.name)
+        self.subscribe(cordelia, stream.name)
+        self.subscribe(hamlet, "Denmark")
+        self.subscribe(cordelia, "Denmark")
+
+        self.send_stream_message(hamlet, stream.name)
+        new_stream_usermessage = most_recent_usermessage(cordelia)
+
+        # We send a message to a different stream too, to verify that the
+        # deactivation of new_stream won't corrupt read state of UserMessage elsewhere.
+        self.send_stream_message(hamlet, "Denmark")
+        denmark_usermessage = most_recent_usermessage(cordelia)
+
+        self.assertFalse(new_stream_usermessage.flags.read)
+        self.assertFalse(denmark_usermessage.flags.read)
+
+        do_deactivate_stream(stream)
+        new_stream_usermessage.refresh_from_db()
+        denmark_usermessage.refresh_from_db()
+        self.assertTrue(new_stream_usermessage.flags.read)
+        self.assertFalse(denmark_usermessage.flags.read)
 
     def test_vacate_private_stream_removes_default_stream(self) -> None:
         stream = self.make_stream('new_stream', invite_only=True)
@@ -2680,9 +2707,9 @@ class SubscriptionAPITest(ZulipTestCase):
         """
         Subscribing to a stream name with non-ASCII characters succeeds.
         """
-        self.helper_check_subs_before_and_after_add(self.streams + ["hümbüǵ"], {},
+        self.helper_check_subs_before_and_after_add([*self.streams, "hümbüǵ"], {},
                                                     ["hümbüǵ"], self.streams, self.test_email,
-                                                    self.streams + ["hümbüǵ"], self.test_realm)
+                                                    [*self.streams, "hümbüǵ"], self.test_realm)
 
     def test_subscriptions_add_too_long(self) -> None:
         """
@@ -3365,7 +3392,8 @@ class SubscriptionAPITest(ZulipTestCase):
         self.assert_json_success(result)
         json = result.json()
         for key, val in json_dict.items():
-            self.assertEqual(sorted(val), sorted(json[key]))  # we don't care about the order of the items
+            # we don't care about the order of the items
+            self.assertEqual(sorted(val), sorted(json[key]))
         user = get_user(email, realm)
         new_streams = self.get_streams(user)
         self.assertEqual(sorted(new_streams), sorted(new_subs))
@@ -3398,7 +3426,8 @@ class SubscriptionAPITest(ZulipTestCase):
         """
         random_streams = self.make_random_stream_names(self.streams)
         self.assertNotEqual(len(random_streams), 0)  # necessary for full test coverage
-        streams_to_remove = random_streams[:1]  # pick only one fake stream, to make checking the error message easy
+        # pick only one fake stream, to make checking the error message easy
+        streams_to_remove = random_streams[:1]
         result = self.client_delete("/json/users/me/subscriptions",
                                     {"subscriptions": orjson.dumps(streams_to_remove).decode()})
         self.assert_json_error(result, f"Stream(s) ({random_streams[0]}) do not exist")
@@ -3718,8 +3747,8 @@ class GetStreamsTest(ZulipTestCase):
         self.assert_json_success(owner_subs)
         owner_subs_json = orjson.loads(owner_subs.content)
 
-        self.assertEqual(sorted([s["name"] for s in json["streams"]]),
-                         sorted([s["name"] for s in owner_subs_json["subscriptions"]]))
+        self.assertEqual(sorted(s["name"] for s in json["streams"]),
+                         sorted(s["name"] for s in owner_subs_json["subscriptions"]))
 
         # Check it correctly lists the bot owner's subs and the
         # bot's subs
@@ -3740,7 +3769,7 @@ class GetStreamsTest(ZulipTestCase):
         self.assertIn("streams", json)
         self.assertIsInstance(json["streams"], list)
 
-        actual = sorted([s["name"] for s in json["streams"]])
+        actual = sorted(s["name"] for s in json["streams"])
         expected = [s["name"] for s in owner_subs_json["subscriptions"]]
         expected.append('Scotland')
         expected.sort()
@@ -3760,7 +3789,7 @@ class GetStreamsTest(ZulipTestCase):
         self.assertIn("streams", json)
         self.assertIsInstance(json["streams"], list)
 
-        actual = sorted([s["name"] for s in json["streams"]])
+        actual = sorted(s["name"] for s in json["streams"])
         expected = [s["name"] for s in owner_subs_json["subscriptions"]]
         expected.extend(['Rome', 'Venice', 'Scotland'])
         expected.sort()
@@ -3779,7 +3808,7 @@ class GetStreamsTest(ZulipTestCase):
         self.assertIn("streams", json)
         self.assertIsInstance(json["streams"], list)
 
-        actual = sorted([s["name"] for s in json["streams"]])
+        actual = sorted(s["name"] for s in json["streams"])
         expected = [s["name"] for s in owner_subs_json["subscriptions"]]
         expected.extend(['Rome', 'Venice', 'Scotland', 'private_stream'])
         expected.sort()
@@ -3851,8 +3880,8 @@ class GetStreamsTest(ZulipTestCase):
         self.assert_json_success(result2)
         json2 = orjson.loads(result2.content)
 
-        self.assertEqual(sorted([s["name"] for s in json["streams"]]),
-                         sorted([s["name"] for s in json2["subscriptions"]]))
+        self.assertEqual(sorted(s["name"] for s in json["streams"]),
+                         sorted(s["name"] for s in json2["subscriptions"]))
 
         # Check it correctly lists all public streams with include_subscribed=false
         filters = dict(

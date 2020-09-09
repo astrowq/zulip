@@ -8,6 +8,7 @@ const render_compose_invite_users = require("../templates/compose_invite_users.h
 const render_compose_not_subscribed = require("../templates/compose_not_subscribed.hbs");
 const render_compose_private_stream_alert = require("../templates/compose_private_stream_alert.hbs");
 
+const people = require("./people");
 const rendered_markdown = require("./rendered_markdown");
 const util = require("./util");
 
@@ -1222,13 +1223,11 @@ exports.initialize = function () {
     });
 
     $("#compose-textarea").on("focus", () => {
-        const opts = {
-            message_type: compose_state.get_message_type(),
-            stream: $("#stream_message_recipient_stream").val(),
-            topic: $("#stream_message_recipient_topic").val(),
-            private_message_recipient: compose_pm_pill.get_emails(),
-        };
-        compose_actions.update_placeholder_text(opts);
+        compose_actions.update_placeholder_text();
+    });
+
+    $("#stream_message_recipient_topic").on("focus", () => {
+        compose_actions.update_placeholder_text();
     });
 
     if (page_params.narrow !== undefined) {

@@ -7,13 +7,12 @@ const path = require("path");
 const Handlebars = require("handlebars/runtime");
 const _ = require("lodash");
 
-const finder = require("./finder.js");
-const handlebars = require("./handlebars.js");
-const stub_i18n = require("./i18n.js");
-const namespace = require("./namespace.js");
-const stub = require("./stub.js");
-const make_blueslip = require("./zblueslip.js").make_zblueslip;
-const zjquery = require("./zjquery.js");
+const handlebars = require("./handlebars");
+const stub_i18n = require("./i18n");
+const namespace = require("./namespace");
+const stub = require("./stub");
+const make_blueslip = require("./zblueslip").make_zblueslip;
+const zjquery = require("./zjquery");
 
 require("@babel/register")({
     extensions: [".es6", ".es", ".jsx", ".js", ".mjs", ".ts"],
@@ -34,7 +33,7 @@ function immediate(f) {
 }
 
 // Find the files we need to run.
-const files = finder.find_files_to_run(); // may write to console
+const files = process.argv.slice(2);
 if (files.length === 0) {
     throw "No tests found";
 }
@@ -44,6 +43,7 @@ global.with_field = namespace.with_field;
 global.set_global = namespace.set_global;
 global.patch_builtin = namespace.set_global;
 global.zrequire = namespace.zrequire;
+global.reset_module = namespace.reset_module;
 global.stub_out_jquery = namespace.stub_out_jquery;
 global.with_overrides = namespace.with_overrides;
 
@@ -94,14 +94,14 @@ function short_tb(tb) {
 }
 
 // Set up Markdown comparison helper
-global.markdown_assert = require("./markdown_assert.js");
+global.markdown_assert = require("./markdown_assert");
 
 let current_file_name;
 
 function run_one_module(file) {
-    console.info("running tests for " + file.name);
-    current_file_name = file.name;
-    require(file.full_name);
+    console.info("running test " + path.basename(file, ".js"));
+    current_file_name = file;
+    require(file);
 }
 
 global.run_test = (label, f) => {

@@ -165,7 +165,7 @@ def fetch_initial_state_data(user_profile: UserProfile,
         state['zulip_plan_is_not_limited'] = realm.plan_type != Realm.LIMITED
         state['upgrade_text_for_wide_organization_logo'] = str(Realm.UPGRADE_TEXT_STANDARD)
         state['realm_default_external_accounts'] = DEFAULT_EXTERNAL_ACCOUNTS
-        state['jitsi_server_url']                = settings.JITSI_SERVER_URL
+        state['jitsi_server_url']                = settings.JITSI_SERVER_URL.rstrip('/')
         state['development_environment']         = settings.DEVELOPMENT
         state['server_generation']               = settings.SERVER_GENERATION
         state['password_min_length']             = settings.PASSWORD_MIN_LENGTH
@@ -371,9 +371,9 @@ def apply_event(state: Dict[str, Any],
 
                 if recipient_id not in conversations:
                     conversations[recipient_id] = dict(
-                        user_ids=sorted([user_dict['id'] for user_dict in
-                                         event['message']['display_recipient'] if
-                                         user_dict['id'] != user_profile.id]),
+                        user_ids=sorted(user_dict['id'] for user_dict in
+                                        event['message']['display_recipient'] if
+                                        user_dict['id'] != user_profile.id),
                     )
                 conversations[recipient_id]['max_message_id'] = event['message']['id']
             return
@@ -742,13 +742,13 @@ def apply_event(state: Dict[str, Any],
         # We don't return messages in `/register`, so most flags we
         # can ignore, but we do need to update the unread_msgs data if
         # unread state is changed.
-        if 'raw_unread_msgs' in state and event['flag'] == 'read' and event['operation'] == 'add':
+        if 'raw_unread_msgs' in state and event['flag'] == 'read' and event['op'] == 'add':
             for remove_id in event['messages']:
                 remove_message_id_from_unread_mgs(state['raw_unread_msgs'], remove_id)
         if event['flag'] == 'starred' and 'starred_messages' in state:
-            if event['operation'] == 'add':
+            if event['op'] == 'add':
                 state['starred_messages'] += event['messages']
-            if event['operation'] == 'remove':
+            if event['op'] == 'remove':
                 state['starred_messages'] = [message for message in state['starred_messages']
                                              if not (message in event['messages'])]
     elif event['type'] == "realm_domains":
@@ -810,7 +810,7 @@ def apply_event(state: Dict[str, Any],
         status_text = event.get('status_text')
 
         if user_id_str not in user_status:
-            user_status[user_id_str] = dict()
+            user_status[user_id_str] = {}
 
         if away is not None:
             if away:
@@ -943,11 +943,11 @@ def post_process_state(user_profile: UserProfile, ret: Dict[str, Any],
 
     if 'raw_recent_private_conversations' in ret:
         # Reformat recent_private_conversations to be a list of dictionaries, rather than a dict.
-        ret['recent_private_conversations'] = sorted([
+        ret['recent_private_conversations'] = sorted((
             dict(
                 **value,
             ) for (recipient_id, value) in ret['raw_recent_private_conversations'].items()
-        ], key = lambda x: -x["max_message_id"])
+        ), key = lambda x: -x["max_message_id"])
         del ret['raw_recent_private_conversations']
 
     if not notification_settings_null and 'subscriptions' in ret:

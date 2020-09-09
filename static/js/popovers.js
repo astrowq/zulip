@@ -1,7 +1,7 @@
 "use strict";
 
 const ClipboardJS = require("clipboard");
-const confirmDatePlugin = require("flatpickr/dist/plugins/confirmDate/confirmDate.js");
+const confirmDatePlugin = require("flatpickr/dist/plugins/confirmDate/confirmDate");
 const moment = require("moment");
 
 const render_actions_popover_content = require("../templates/actions_popover_content.hbs");
@@ -15,6 +15,7 @@ const render_user_info_popover_content = require("../templates/user_info_popover
 const render_user_info_popover_title = require("../templates/user_info_popover_title.hbs");
 const render_user_profile_modal = require("../templates/user_profile_modal.hbs");
 
+const people = require("./people");
 const settings_data = require("./settings_data");
 const util = require("./util");
 
@@ -232,7 +233,7 @@ function render_user_info_popover(
         }),
         html: true,
         trigger: "manual",
-        top_offset: 100,
+        top_offset: $("#userlist-title").offset().top + 15,
         fix_positions: true,
     });
     popover_element.popover("show");
@@ -689,6 +690,20 @@ function focus_user_info_popover_item() {
     const items = get_user_info_popover_items();
     exports.focus_first_popover_item(items);
 }
+
+function get_user_sidebar_popover_items() {
+    if (!current_user_sidebar_popover) {
+        blueslip.error("Trying to get menu items when user sidebar popover is closed.");
+        return;
+    }
+
+    return $("li:not(.divider):visible > a", current_user_sidebar_popover.$tip);
+}
+
+exports.user_sidebar_popover_handle_keyboard = function (key) {
+    const items = get_user_sidebar_popover_items();
+    exports.popover_items_handle_keyboard(key, items);
+};
 
 exports.user_info_popover_handle_keyboard = function (key) {
     const items = get_user_info_popover_items();

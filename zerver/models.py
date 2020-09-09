@@ -365,6 +365,7 @@ class Realm(models.Model):
         },
         # ID 2 was used for the now-deleted Google Hangouts.
         # ID 3 reserved for optional Zoom, see below.
+        # ID 4 reserved for optional Big Blue Button, see below.
     }
 
     if settings.VIDEO_ZOOM_CLIENT_ID is not None and settings.VIDEO_ZOOM_CLIENT_SECRET is not None:
@@ -1408,7 +1409,7 @@ def filter_to_valid_prereg_users(query: QuerySet) -> QuerySet:
 
 class MultiuseInvite(models.Model):
     id: int = models.AutoField(auto_created=True, primary_key=True, verbose_name='ID')
-    referred_by: UserProfile = models.ForeignKey(UserProfile, on_delete=CASCADE)  # Optional[UserProfile]
+    referred_by: UserProfile = models.ForeignKey(UserProfile, on_delete=CASCADE)
     streams: Manager = models.ManyToManyField('Stream')
     realm: Realm = models.ForeignKey(Realm, on_delete=CASCADE)
     invited_as: int = models.PositiveSmallIntegerField(default=PreregistrationUser.INVITE_AS['MEMBER'])
@@ -2598,7 +2599,8 @@ class UserPresence(models.Model):
     @staticmethod
     def status_from_string(status: str) -> Optional[int]:
         if status == 'active':
-            status_val: Optional[int] = UserPresence.ACTIVE  # See https://github.com/python/mypy/issues/2611
+            # See https://github.com/python/mypy/issues/2611
+            status_val: Optional[int] = UserPresence.ACTIVE
         elif status == 'idle':
             status_val = UserPresence.IDLE
         else:

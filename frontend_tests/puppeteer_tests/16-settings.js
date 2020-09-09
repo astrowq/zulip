@@ -2,7 +2,7 @@
 
 const assert = require("assert").strict;
 
-const test_credentials = require("../../var/casper/test_credentials.js").test_credentials;
+const test_credentials = require("../../var/puppeteer/test_credentials").test_credentials;
 const common = require("../puppeteer_lib/common");
 
 const OUTGOING_WEBHOOK_BOT_TYPE = "3";
@@ -270,7 +270,7 @@ async function assert_language_changed_to_chinese(page) {
 async function test_i18n_language_precedence(page) {
     const settings_url_for_german = "http://zulip.zulipdev.com:9981/de/#settings";
     await page.goto(settings_url_for_german);
-    await page.waitForSelector("#settings-change-box");
+    await page.waitForSelector("#settings-change-box", {visible: true});
     const page_language_code = await page.evaluate(() => document.documentElement.lang);
     assert.strictEqual(page_language_code, "de");
 }
@@ -286,6 +286,7 @@ async function test_default_language_setting(page) {
     await page.waitForSelector("#default_language", {visible: true});
     await assert_language_changed_to_chinese(page);
     await test_i18n_language_precedence(page);
+    await page.waitForSelector(display_settings_section, {visible: true});
     await page.click(display_settings_section);
 
     // Change the language back to English so that subsequent tests pass.
@@ -294,7 +295,7 @@ async function test_default_language_setting(page) {
     // As we've opened settings page in German the language status will be german.
     await check_language_setting_status(page, "de");
     await page.goto("http://zulip.zulipdev.com:9981/#settings"); // get back to normal language.
-    await page.waitForSelector(display_settings_section);
+    await page.waitForSelector(display_settings_section, {visible: true});
     await page.click(display_settings_section);
     await page.waitForSelector("#language-settings-status", {visible: true});
     await page.waitForSelector("#default_language", {visible: true});

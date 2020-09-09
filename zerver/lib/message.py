@@ -107,7 +107,7 @@ def messages_for_ids(message_ids: List[int],
 
     for message_id in message_ids:
         msg_dict = message_dicts[message_id]
-        msg_dict.update({"flags": user_message_flags[message_id]})
+        msg_dict.update(flags=user_message_flags[message_id])
         if message_id in search_fields:
             msg_dict.update(search_fields[message_id])
         # Make sure that we never send message edit history to clients
@@ -730,7 +730,7 @@ def huddle_users(recipient_id: int) -> str:
 def aggregate_message_dict(input_dict: Dict[int, Dict[str, Any]],
                            lookup_fields: List[str],
                            collect_senders: bool) -> List[Dict[str, Any]]:
-    lookup_dict: Dict[Tuple[Any, ...], Dict[str, Any]] = dict()
+    lookup_dict: Dict[Tuple[Any, ...], Dict[str, Any]] = {}
 
     '''
     A concrete example might help explain the inputs here:
@@ -765,7 +765,7 @@ def aggregate_message_dict(input_dict: Dict[int, Dict[str, Any]],
     '''
 
     for message_id, attribute_dict in input_dict.items():
-        lookup_key = tuple([attribute_dict[f] for f in lookup_fields])
+        lookup_key = tuple(attribute_dict[f] for f in lookup_fields)
         if lookup_key not in lookup_dict:
             obj = {}
             for f in lookup_fields:
@@ -783,7 +783,7 @@ def aggregate_message_dict(input_dict: Dict[int, Dict[str, Any]],
     for dct in lookup_dict.values():
         dct['unread_message_ids'].sort()
         if collect_senders:
-            dct['sender_ids'] = sorted(list(dct['sender_ids']))
+            dct['sender_ids'] = sorted(dct['sender_ids'])
 
     sorted_keys = sorted(lookup_dict.keys())
 
@@ -1179,7 +1179,7 @@ def get_recent_private_conversations(user_profile: UserProfile) -> Dict[int, Dic
     for recipient_id, max_message_id in rows:
         recipient_map[recipient_id] = dict(
             max_message_id=max_message_id,
-            user_ids=list(),
+            user_ids=[],
         )
 
     # Now we need to map all the recipient_id objects to lists of user IDs
